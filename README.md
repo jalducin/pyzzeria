@@ -49,8 +49,21 @@ uvicorn app.main:app --reload
 
 **Usuarios sembrados:**
 
-- `admin@pos.local` / `admin123` (rol admin)
-- `cajero@pos.local` / `cajero123` (rol cashier)
+- `admin@pos.com` / `admin123` (rol admin)
+- `cajero@pos.com` / `cajero123` (rol cashier)
+
+> Nota: usamos dominios `.com` y no `.local` porque Pydantic `EmailStr` rechaza dominios reservados (RFC 6762). Ver `DT-13`.
+
+## Frontend (Vite + JS vanilla)
+
+```powershell
+cd frontend
+npm install
+npm run dev
+# SPA en http://localhost:5173
+```
+
+El frontend espera la API en `VITE_API_URL` (default `http://localhost:8000`). CORS habilitado en backend para `localhost:5173`.
 
 **Tests:**
 

@@ -3,7 +3,7 @@
 ## Metadata
 
 - Basado en: requirements.md v1.1.0
-- Versión: 1.1.0
+- Versión: 1.1.1
 - Fecha: 2026-05-31
 - Estado: Pendiente de aprobación
 
@@ -311,6 +311,16 @@ Cubre NFR-07.
   - Se valida en CI: `alembic upgrade head` sobre DB efímera antes de merge.
   - Datos de seed van en scripts separados, no dentro de migraciones de schema.
 
+### Entornos de base de datos
+
+| Entorno | Motor | Conexión |
+| --- | --- | --- |
+| Dev local | SQLite (`pos_local.db`) | `sqlite:///./pos_local.db` (default si no hay `DATABASE_URL`) |
+| Tests automatizados | SQLite in-memory (StaticPool) | `sqlite:///:memory:` con esquema cargado desde `Base.metadata` |
+| Staging / Producción | PostgreSQL gestionado | `postgresql+psycopg://...` desde Secrets Manager |
+
+Los modelos usan tipos dialect-agnostic de SQLAlchemy 2.0 (`Uuid`, `JSON`) para ser portables. SQLite tiene limitaciones documentadas (sin `JSONB`, sin `SELECT ... FOR UPDATE`, locking distinto) — ver DT-11 para el plan de validar contra Postgres efímero en CI antes de release.
+
 ## 9. Decisiones Arquitectónicas (ADR ligero)
 
 | ID | Decisión | Alternativa descartada | Motivo | Referencia |
@@ -327,3 +337,4 @@ Cubre NFR-07.
 | --- | --- | --- |
 | 1.0.0 | 2026-05-31 | Versión inicial |
 | 1.1.0 | 2026-05-31 | Matriz de trazabilidad (§2); entidades Branch, AuditLog, CreditNote; User.branch_id; endpoints /branches y /audit-logs; idempotencia en POST /sales; contrato estándar de errores (§6); §7 Observabilidad; §8 Migraciones; §9 Decisiones (D-01..D-05). |
+| 1.1.1 | 2026-05-31 | §8: agregada tabla de entornos de base de datos (SQLite dev/test, Postgres staging/prod) + referencia a DT-11. Modelos refactorizados a tipos dialect-agnostic. |

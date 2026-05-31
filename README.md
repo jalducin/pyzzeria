@@ -1,36 +1,71 @@
-# 🛒 POS Retail — Sistema de Punto de Venta
+# POS Retail — Sistema de Punto de Venta
 
-Proyecto de práctica desarrollado con **Spec-Driven Development (SDD)** usando Claude Code.
+Proyecto desarrollado con **Spec-Driven Development (SDD)** usando Claude Code.
 
 ## Stack
+
 - Python 3.12 + FastAPI
-- PostgreSQL + Redis
+- PostgreSQL (prod/staging) · SQLite (dev/test) · Redis (sesiones e idempotencia)
 - AWS Lambda + API Gateway + Step Functions
 - JWT Auth + RBAC
 
 ## Documentación SDD
-| Archivo | Descripción | Estado |
-|---|---|---|
-| [requirements.md](docs/sdd/requirements.md) | Casos de uso y requerimientos | ✅ v1.0 |
-| [design.md](docs/sdd/design.md) | Arquitectura, modelos y endpoints | ✅ v1.0 |
-| [tasks.md](docs/sdd/tasks.md) | Sprints y tareas de implementación | ✅ v1.0 |
+
+| Archivo | Descripción | Versión |
+| --- | --- | --- |
+| [requirements.md](docs/sdd/requirements.md) | Casos de uso, FR/NFR, criterios de aceptación | 1.1.1 |
+| [design.md](docs/sdd/design.md) | Arquitectura, modelos, endpoints, ADR | 1.1.1 |
+| [tasks.md](docs/sdd/tasks.md) | Sprints y tareas con DoD | 1.1.0 |
+| [tech-debt.md](docs/sdd/tech-debt.md) | Registro de deuda técnica (DT-01..DT-12) | 1.3.0 |
 
 ## Flujo SDD
-```
+
+```text
 requirements.md → design.md → tasks.md → implementación
+       └─ deuda registrada en tech-debt.md cuando un punto nuevo queda sin cerrar
 ```
 
-## Setup (próximamente)
-```bash
-git clone <repo>
-cd pos-retail
-python -m venv venv
-source venv/bin/activate
+## Quickstart local (SQLite)
+
+Sin Postgres ni Redis — usa SQLite por defecto. Pensado para desarrollo y para que Gemini pueda probar el frontend contra una API real.
+
+```powershell
+# 1. Entorno
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+
+# 2. Migración inicial (crea pos_local.db con las 8 tablas)
+python -m alembic upgrade head
+
+# 3. Seed de datos de prueba (admin + cajero + 5 productos)
+python -m scripts.seed_dev
+
+# 4. Arrancar la API
+uvicorn app.main:app --reload
+# Swagger:  http://127.0.0.1:8000/docs
+# Health:   http://127.0.0.1:8000/health
 ```
+
+**Usuarios sembrados:**
+
+- `admin@pos.local` / `admin123` (rol admin)
+- `cajero@pos.local` / `cajero123` (rol cashier)
+
+**Tests:**
+
+```powershell
+pytest -v
+```
+
+Usa SQLite in-memory con `StaticPool`; no toca `pos_local.db`.
+
+**Switch a Postgres:** define `DATABASE_URL=postgresql+psycopg://user:pass@host:5432/db` en `.env`. Ver `docs/sdd/design.md §8` y la deuda `DT-11`.
 
 ## Versionado
+
 Este proyecto sigue [Conventional Commits](https://www.conventionalcommits.org/):
+
 - `feat:` nueva funcionalidad
 - `fix:` corrección de bug
 - `docs:` cambios en documentación

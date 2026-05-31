@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Versión: 1.2.0
+- Versión: 1.3.0
 - Fecha de inicio: 2026-05-31
 - Metodología: SDD (Spec-Driven Development)
 
@@ -122,6 +122,26 @@ Cada vez que se agregue un punto nuevo (FR, NFR, decisión de diseño, tarea, en
 - **Trigger de resolución:** T1-09 (setup Redis) + T3-03 (CheckIdempotency step con Redis).
 - **Estado:** ABIERTO
 
+### DT-11: SQLite como base por defecto en dev/test
+
+- **Categoría:** ATAJO
+- **Origen:** `app/core/config.py` (default `DATABASE_URL=sqlite:///./pos_local.db`) + `tests/conftest.py` (SQLite in-memory con StaticPool)
+- **Motivo:** Permitir arranque local sin Postgres y tests rápidos sin contenedores. Producción y staging siguen siendo PostgreSQL (design §1, ADR D-01).
+- **Impacto si no se resuelve:** SQLite no soporta JSONB, `SELECT ... FOR UPDATE`, ni todas las constraints que Postgres. Una migración o query que funciona en dev puede fallar en prod si no se valida en CI con Postgres real.
+- **Dueño:** sin asignar
+- **Trigger de resolución:** habilitar job de CI que corra el mismo suite contra Postgres efímero (testcontainers o service container) antes de cualquier release a staging.
+- **Estado:** ABIERTO
+
+### DT-12: passlib 1.7.4 incompatible con bcrypt ≥ 4.1
+
+- **Categoría:** ATAJO
+- **Origen:** `requirements.txt` (pin `bcrypt==4.0.1`)
+- **Motivo:** `passlib 1.7.4` lee `bcrypt.__about__.__version__`, atributo removido en `bcrypt ≥ 4.1`. Como passlib no recibe releases activos, fijamos bcrypt a 4.0.1.
+- **Impacto si no se resuelve:** Riesgo de regresión cuando alguien actualice `bcrypt` sin notar el pin; tampoco recibiremos fixes de seguridad de versiones nuevas de bcrypt.
+- **Dueño:** sin asignar
+- **Trigger de resolución:** migrar a `bcrypt` directo (sin passlib) o adoptar `argon2-cffi` (más moderno).
+- **Estado:** ABIERTO
+
 ### DT-08: AuditLog sin retención ni archivado definido
 
 - **Categoría:** GAP-CALIDAD
@@ -151,3 +171,4 @@ Cada vez que se agregue un punto nuevo (FR, NFR, decisión de diseño, tarea, en
 | 1.0.0 | 2026-05-31 | Versión inicial con regla operativa, 4 categorías y registros DT-01..DT-04 |
 | 1.1.0 | 2026-05-31 | Agregadas DT-05 (rate limiting naïve), DT-06 (compensación manual inventario), DT-07 (typo changelog), DT-08 (retención AuditLog). Convención de IDs extendida con T{S}-NN y D-XX. Origen de DT-03 actualizado a design §6. |
 | 1.2.0 | 2026-05-31 | Agregadas DT-09 (process_sale complejidad cognitiva > 15) y DT-10 (Idempotency-Key sin TTL Redis), derivadas del scaffolding backend. |
+| 1.3.0 | 2026-05-31 | Agregadas DT-11 (SQLite default en dev/test) y DT-12 (passlib+bcrypt pin), derivadas de la habilitación de SQLite local. |

@@ -261,6 +261,33 @@ def get_sale(sale_id: int) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Endpoints — Usuarios (solo lectura, sin contraseña — seed/demo)
+# ---------------------------------------------------------------------------
+
+class UserResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    role: str
+    is_active: bool
+
+
+@app.get(
+    "/api/users",
+    response_model=list[UserResponse],
+    summary="Listar usuarios (demo)",
+    description="Devuelve cajeros y admin registrados. No expone contraseñas. Solo para validación del seed.",
+    tags=["Usuarios"],
+)
+def list_users() -> list[dict]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT id, name, email, role, is_active FROM users ORDER BY role, name"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
 # Frontend (debe ir al final para no sobrepisar rutas /api/*)
 # ---------------------------------------------------------------------------
 

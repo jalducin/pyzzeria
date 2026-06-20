@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POS Demo</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <h1>🛒 POS Demo</h1>
+      <nav id="category-nav" class="category-nav"></nav>
+    </header>
+
+    <div class="layout">
+      <main class="products-grid" id="products-grid">
+        <p class="loading">Cargando catálogo…</p>
+      </main>
+
+      <aside class="ticket">
+        <h2 class="ticket-title">— Ticket —</h2>
+        <ul class="ticket-items" id="ticket-items"></ul>
+        <div class="ticket-divider"></div>
+        <div class="ticket-total">
+          <span>TOTAL</span>
+          <span id="ticket-total-amount">$0.00</span>
+        </div>
+        <button class="btn-pay" id="btn-pay" onclick="confirmarCobro()" disabled>
+          Cobrar
+        </button>
+        <p class="ticket-status" id="ticket-status"></p>
+      </aside>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

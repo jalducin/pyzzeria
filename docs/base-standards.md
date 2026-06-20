@@ -30,11 +30,12 @@ alwaysApply: true
 
 Para guías detalladas por área, cada proyecto agrega sus documentos en `docs/`:
 
-- `docs/<area>-standards.md` — por ejemplo `backend-standards.md`, `frontend-standards.md`,
-  `sql-standards.md`, `n8n-standards.md`, según el stack del proyecto.
+- `docs/golden-rules.md` — **reglas de oro no negociables**: Swagger obligatorio, autenticación y tests por escenario.
+- `docs/git-standards.md` — estrategia de ramas por sprint, flujo de PR y protección de `main`.
 - `docs/documentation-standards.md` — estructura, formato y mantenimiento de la documentación.
+- `docs/<area>-standards.md` — estándares específicos adicionales según el stack del proyecto.
 
-Crea solo los que apliquen a tu proyecto y enlázalos desde `openspec/config.yaml`.
+Enlazar todos los que apliquen desde `openspec/config.yaml`.
 
 ## 4. Skills del proyecto
 

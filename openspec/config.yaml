@@ -16,8 +16,12 @@ context: |
   Estándares del proyecto (fuente única de verdad): toda creación e implementación de
   artefactos DEBE seguir el contexto técnico en docs/. Leer y aplicar:
   - docs/base-standards.md — principios base, idioma, skills, planificación y reglas OpenSpec.
+  - docs/golden-rules.md — REGLAS DE ORO (no negociables): Swagger obligatorio en todo servicio, autenticación JWT en endpoints protegidos, tests unitarios por cada escenario del spec.
+  - docs/git-standards.md — estrategia de ramas por sprint (feature→sprint→main), flujo de PR y protección de main.
   - docs/documentation-standards.md — estructura y mantenimiento de la documentación.
-  - docs/<area>-standards.md — estándares específicos que agregue el proyecto (ej. backend, frontend, sql, n8n).
+
+  Flujo de ramas: feature/[spec] → sprint/YYYY-NN → main (solo via PR con CI verde).
+  CI: .github/workflows/ci.yml — ejecuta pytest + verifica /openapi.json y /docs antes de permitir merge.
 
   Para implementar: adopta el agente relevante de ai-specs/agents/ según el tipo de cambio.
 
@@ -27,7 +31,8 @@ context: |
 rules:
   _global:
     - Antes de crear cualquier artefacto, leer y aplicar docs/base-standards.md
-    - Aplicar los docs/*-standards.md que correspondan al área del cambio
+    - Leer y aplicar docs/golden-rules.md en cada implementación (Swagger + auth + tests)
+    - Leer y aplicar docs/git-standards.md para toda operación de ramas y merge
     - Mantener consistencia con los specs existentes en openspec/specs/
 
   tasks:

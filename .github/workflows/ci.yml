@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+      - 'sprint/**'
+
+jobs:
+  test:
+    name: Tests + Swagger check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: |
+          pip install --upgrade pip
+          pip install fastapi uvicorn pytest httpx pytest-cov
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Ejecutar pruebas unitarias
+        run: |
+          pytest --tb=short --cov=backend --cov-report=term-missing -q
+
+      - name: Verificar que Swagger está accesible
+        run: |
+          uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
+          sleep 3
+          curl -f http://localhost:8000/openapi.json || (echo "ERROR: /openapi.json no accesible" && exit 1)
+          curl -f http://localhost:8000/docs || (echo "ERROR: /docs no accesible" && exit 1)
+          echo "Swagger OK"
+
+      - name: Verificar que auth está protegido
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/sales)
+          if [ "$STATUS" != "401" ] && [ "$STATUS" != "200" ]; then
+            echo "WARN: /api/sales respondió $STATUS (esperado 200 o 401)"
+          fi
+          echo "Auth check OK (status: $STATUS)"

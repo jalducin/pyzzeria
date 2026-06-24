@@ -1,233 +1,328 @@
-// Estado en memoria
-const estado = {
-  productos: [],        // lista completa del servidor
-  categoriaActiva: null,
-  carrito: [],          // [{ product_id, name, price, quantity }]
+'use strict';
+
+// ─── Estado global ────────────────────────────────────────────────────────────
+const appState = {
+  screen: 'size',
+  sizes: [],
+  toppings: [],
+  selectedSize: null,         // { id, name, diameter_cm, base_price }
+  selectedToppings: [],       // [{ id, name, price, category }, ...]
+  customerName: '',
+  currentOrder: null,         // OrderResponse del servidor
+  ws: null,
+  wsRetries: 0,
+  wsMaxRetries: 3,
 };
 
-// ---------------------------------------------------------------------------
-// Init
-// ---------------------------------------------------------------------------
+// ─── Inicialización ───────────────────────────────────────────────────────────
+async function initApp() {
+  // Enlazar botón de spec al URL configurado
+  const specBtn = document.getElementById('btn-spec');
+  if (specBtn && typeof API_BASE_URL !== 'undefined') {
+    specBtn.href = `${API_BASE_URL}/docs`;
+  }
 
-document.addEventListener("DOMContentLoaded", () => {
-  cargarCatalogo();
-});
-
-async function cargarCatalogo() {
   try {
-    const [productos, categorias] = await Promise.all([
-      fetch("/api/products").then(r => r.json()),
-      fetch("/api/categories").then(r => r.json()),
+    const [sizesRes, toppingsRes] = await Promise.all([
+      fetch(`${API_BASE_URL}/api/menu/sizes`),
+      fetch(`${API_BASE_URL}/api/menu/toppings`),
     ]);
-    estado.productos = productos;
-    renderCategorias(categorias);
-    renderProductos();
-  } catch (e) {
-    document.getElementById("products-grid").innerHTML =
-      '<p class="loading">Error al cargar el catálogo. ¿Está corriendo el backend?</p>';
+    appState.sizes    = await sizesRes.json();
+    appState.toppings = await toppingsRes.json();
+  } catch (err) {
+    console.error('Error cargando menú:', err);
+    appState.sizes    = [];
+    appState.toppings = [];
+  }
+
+  renderSizes();
+  renderToppings();
+  showScreen('size');
+}
+
+// ─── Navegación ───────────────────────────────────────────────────────────────
+function showScreen(name) {
+  appState.screen = name;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const target = document.getElementById(`screen-${name}`);
+  if (target) {
+    target.classList.add('active');
+    // Re-trigger animation
+    target.style.animation = 'none';
+    target.offsetHeight; // reflow
+    target.style.animation = '';
   }
 }
 
-// ---------------------------------------------------------------------------
-// Categorías
-// ---------------------------------------------------------------------------
+// ─── Pantalla 1: Tamaños ──────────────────────────────────────────────────────
+function renderSizes() {
+  const grid = document.getElementById('sizes-grid');
+  if (!grid) return;
 
-function renderCategorias(categorias) {
-  const nav = document.getElementById("category-nav");
-  const todas = ["Todas", ...categorias];
-  nav.innerHTML = todas
-    .map(cat => `<button class="category-btn${cat === "Todas" ? " active" : ""}"
-                   onclick="filtrarCategoria('${cat}')">${cat}</button>`)
-    .join("");
+  const icons = { chica: '🍕', mediana: '🍕🍕', grande: '🍕🍕🍕' };
+
+  grid.innerHTML = appState.sizes.map(s => `
+    <div class="size-card" onclick="selectSize(${s.id})" data-size-id="${s.id}">
+      <div class="pizza-icon">${icons[s.name] || '🍕'}</div>
+      <div class="size-name">${s.name}</div>
+      <div class="size-diam">${s.diameter_cm} cm</div>
+      <div class="size-price">$${s.base_price.toFixed(2)}</div>
+    </div>
+  `).join('');
 }
 
-function filtrarCategoria(cat) {
-  estado.categoriaActiva = cat === "Todas" ? null : cat;
-  document.querySelectorAll(".category-btn").forEach(b => {
-    b.classList.toggle("active", b.textContent === cat);
+function selectSize(sizeId) {
+  appState.selectedSize = appState.sizes.find(s => s.id === sizeId) || null;
+  appState.selectedToppings = [];
+
+  document.querySelectorAll('.size-card').forEach(c => {
+    c.classList.toggle('selected', Number(c.dataset.sizeId) === sizeId);
   });
-  renderProductos();
+
+  updatePriceDisplay();
+  showScreen('toppings');
 }
 
-// ---------------------------------------------------------------------------
-// Productos
-// ---------------------------------------------------------------------------
+// ─── Pantalla 2: Toppings ─────────────────────────────────────────────────────
+function renderToppings() {
+  const container = document.getElementById('toppings-by-category');
+  if (!container) return;
 
-function renderProductos() {
-  const grid = document.getElementById("products-grid");
-  const lista = estado.categoriaActiva
-    ? estado.productos.filter(p => p.category === estado.categoriaActiva)
-    : estado.productos;
+  const byCategory = {};
+  appState.toppings.forEach(t => {
+    if (!byCategory[t.category]) byCategory[t.category] = [];
+    byCategory[t.category].push(t);
+  });
 
-  if (!lista.length) {
-    grid.innerHTML = '<p class="loading">Sin productos en esta categoría.</p>';
-    return;
-  }
-
-  grid.innerHTML = lista.map(p => {
-    const enCarrito = stockEnCarrito(p.id);
-    const stockDisponible = p.stock - enCarrito;
-    const sinStock = stockDisponible <= 0;
-    return `
-      <div class="product-card${sinStock ? " out-of-stock" : ""}"
-           onclick="${sinStock ? "" : `agregarAlCarrito(${p.id})`}"
-           title="${sinStock ? "Sin stock disponible" : "Agregar al ticket"}">
-        <span class="product-name">${p.name}</span>
-        <span class="product-category">${p.category}</span>
-        <span class="product-price">$${p.price.toFixed(2)}</span>
-        <span class="product-stock${stockDisponible <= 3 ? " low" : ""}">
-          Stock: ${stockDisponible}${sinStock ? " — agotado" : ""}
-        </span>
-      </div>`;
-  }).join("");
+  container.innerHTML = Object.entries(byCategory).map(([cat, items]) => `
+    <div class="category-group">
+      <div class="category-title">${cat}</div>
+      <div class="toppings-row">
+        ${items.map(t => `
+          <div class="topping-card" onclick="toggleTopping(${t.id})" data-topping-id="${t.id}">
+            ${t.name}<span class="t-price">+$${t.price.toFixed(2)}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
 }
 
-function stockEnCarrito(productId) {
-  const item = estado.carrito.find(i => i.product_id === productId);
-  return item ? item.quantity : 0;
-}
+function toggleTopping(toppingId) {
+  const topping = appState.toppings.find(t => t.id === toppingId);
+  if (!topping) return;
 
-// ---------------------------------------------------------------------------
-// Carrito
-// ---------------------------------------------------------------------------
-
-function agregarAlCarrito(productId) {
-  const producto = estado.productos.find(p => p.id === productId);
-  if (!producto) return;
-
-  const enCarrito = stockEnCarrito(productId);
-  if (producto.stock - enCarrito <= 0) {
-    mostrarToast("Sin stock disponible", "error");
-    return;
-  }
-
-  const item = estado.carrito.find(i => i.product_id === productId);
-  if (item) {
-    item.quantity += 1;
+  const idx = appState.selectedToppings.findIndex(t => t.id === toppingId);
+  if (idx === -1) {
+    if (appState.selectedToppings.length >= 8) return; // límite del spec
+    appState.selectedToppings.push(topping);
   } else {
-    estado.carrito.push({
-      product_id: productId,
-      name: producto.name,
-      price: producto.price,
-      quantity: 1,
+    appState.selectedToppings.splice(idx, 1);
+  }
+
+  document.querySelectorAll('.topping-card').forEach(c => {
+    c.classList.toggle('selected', appState.selectedToppings.some(t => t.id === Number(c.dataset.toppingId)));
+  });
+
+  updatePriceDisplay();
+}
+
+function updatePriceDisplay() {
+  const base   = appState.selectedSize ? appState.selectedSize.base_price : 0;
+  const extras = appState.selectedToppings.reduce((sum, t) => sum + t.price, 0);
+  const total  = base + extras;
+  const el = document.getElementById('price-display');
+  if (el) el.textContent = `$${total.toFixed(2)}`;
+}
+
+function goToName() {
+  if (!appState.selectedSize) return;
+  renderOrderRecap();
+  showScreen('name');
+}
+
+// ─── Pantalla 3: Nombre ───────────────────────────────────────────────────────
+function renderOrderRecap() {
+  const el = document.getElementById('order-recap');
+  if (!el || !appState.selectedSize) return;
+
+  const base   = appState.selectedSize.base_price;
+  const extras = appState.selectedToppings.reduce((s, t) => s + t.price, 0);
+  const total  = base + extras;
+  const toppingNames = appState.selectedToppings.map(t => t.name).join(', ') || 'Sin extras';
+
+  el.innerHTML = `
+    <strong>Pizza ${appState.selectedSize.name}</strong> (${appState.selectedSize.diameter_cm} cm)<br>
+    ${toppingNames}<br>
+    <strong style="color:var(--accent)">Total: $${total.toFixed(2)}</strong>
+  `;
+}
+
+async function submitOrder() {
+  const nameEl = document.getElementById('customer-name');
+  const errEl  = document.getElementById('order-error');
+  const btnEl  = document.getElementById('btn-order');
+  const name   = (nameEl ? nameEl.value : '').trim();
+
+  errEl.classList.add('hidden');
+  errEl.textContent = '';
+
+  if (!name) {
+    errEl.textContent = 'Por favor ingresa tu nombre.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  btnEl.disabled = true;
+  btnEl.textContent = 'Enviando…';
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer_name: name,
+        size_id:       appState.selectedSize.id,
+        topping_ids:   appState.selectedToppings.map(t => t.id),
+      }),
     });
-  }
 
-  renderProductos();
-  renderTicket();
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || `Error ${res.status}`);
+    }
+
+    appState.currentOrder = await res.json();
+    appState.customerName = name;
+    appState.wsRetries = 0;
+
+    showTrackerScreen();
+    connectWebSocket(appState.currentOrder.id);
+  } catch (err) {
+    errEl.textContent = `Error al crear el pedido: ${err.message}`;
+    errEl.classList.remove('hidden');
+    btnEl.disabled = false;
+    btnEl.textContent = 'Ordenar 🍕';
+  }
 }
 
-function quitarDelCarrito(productId) {
-  const idx = estado.carrito.findIndex(i => i.product_id === productId);
-  if (idx === -1) return;
-  if (estado.carrito[idx].quantity > 1) {
-    estado.carrito[idx].quantity -= 1;
-  } else {
-    estado.carrito.splice(idx, 1);
-  }
-  renderProductos();
-  renderTicket();
+// ─── Pantalla 4: Tracker ──────────────────────────────────────────────────────
+function showTrackerScreen() {
+  const order = appState.currentOrder;
+  if (!order) return;
+
+  document.getElementById('tracker-customer').textContent = `Para: ${order.customer_name}`;
+
+  const toppingNames = (order.topping_snapshots || []).map(t => t.name).join(', ') || 'Sin extras';
+  document.getElementById('tracker-summary').textContent =
+    `Pizza ${order.size_snapshot.name} · ${toppingNames} · $${parseFloat(order.total).toFixed(2)}`;
+
+  updateStepper(order.status);
+  showScreen('tracker');
 }
 
-// ---------------------------------------------------------------------------
-// Ticket
-// ---------------------------------------------------------------------------
+const STATUS_MSGS = {
+  recibido:   '¡Pedido recibido! Preparando tu orden…',
+  preparando: '¡Manos en la masa! Estamos armando tu pizza 👨‍🍳',
+  horno:      '¡Al horno! Cocinando a 300°C 🔥',
+  listo:      '¡Lista! Empaquetando tu pizza ✅',
+  entregado:  '¡Entregado! Buen provecho 🎉',
+};
 
-function renderTicket() {
-  const lista = document.getElementById("ticket-items");
-  const totalEl = document.getElementById("ticket-total-amount");
-  const btnPay = document.getElementById("btn-pay");
-  const status = document.getElementById("ticket-status");
+const STATUS_ORDER = ['recibido', 'preparando', 'horno', 'listo', 'entregado'];
 
-  if (!estado.carrito.length) {
-    lista.innerHTML = '<li style="color:#888;font-size:0.8rem;padding:8px 0">Toca un producto para agregarlo</li>';
-    totalEl.textContent = "$0.00";
-    btnPay.disabled = true;
-    status.textContent = "";
+function updateStepper(status) {
+  const activeIdx = STATUS_ORDER.indexOf(status);
+
+  document.querySelectorAll('.step').forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i < activeIdx) el.classList.add('done');
+    if (i === activeIdx) el.classList.add('active');
+  });
+
+  const msgEl = document.getElementById('tracker-status-msg');
+  if (msgEl) msgEl.textContent = STATUS_MSGS[status] || '';
+}
+
+// ─── WebSocket ────────────────────────────────────────────────────────────────
+function connectWebSocket(orderId) {
+  if (typeof WS_URL === 'undefined') return;
+
+  const wsStatusEl = document.getElementById('ws-status');
+  const url = `${WS_URL}?orderId=${orderId}`;
+
+  try {
+    appState.ws = new WebSocket(url);
+  } catch (err) {
+    setWsStatus('Conexión en tiempo real no disponible — refrescando estado…');
     return;
   }
 
-  lista.innerHTML = estado.carrito.map(item => {
-    const sub = (item.price * item.quantity).toFixed(2);
-    return `
-      <li class="ticket-item">
-        <span class="ticket-item-name">${item.name}</span>
-        <span class="ticket-item-qty">${item.quantity} × $${item.price.toFixed(2)}</span>
-        <span class="ticket-item-sub">$${sub}</span>
-        <button class="ticket-item-remove" onclick="quitarDelCarrito(${item.product_id})" title="Quitar">✕</button>
-      </li>`;
-  }).join("");
-
-  const total = estado.carrito.reduce((acc, i) => acc + i.price * i.quantity, 0);
-  totalEl.textContent = `$${total.toFixed(2)}`;
-  btnPay.disabled = false;
-  status.textContent = "";
-  status.className = "ticket-status";
-}
-
-// ---------------------------------------------------------------------------
-// Confirmar cobro
-// ---------------------------------------------------------------------------
-
-async function confirmarCobro() {
-  const btnPay = document.getElementById("btn-pay");
-  const status = document.getElementById("ticket-status");
-
-  if (!estado.carrito.length) return;
-
-  btnPay.disabled = true;
-  btnPay.textContent = "Procesando…";
-
-  const payload = {
-    items: estado.carrito.map(i => ({
-      product_id: i.product_id,
-      quantity: i.quantity,
-    })),
+  appState.ws.onopen = () => {
+    appState.wsRetries = 0;
+    setWsStatus('');
   };
 
-  try {
-    const res = await fetch("/api/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+  appState.ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'status_update') {
+        updateStepper(msg.status);
+      }
+    } catch (_) { /* ignorar mensajes malformados */ }
+  };
 
-    if (res.status === 201) {
-      const venta = await res.json();
-      estado.carrito = [];
-      await cargarCatalogo();   // actualiza stock real desde servidor
-      renderTicket();
-      status.textContent = `✓ Venta #${venta.id} — Total $${venta.total.toFixed(2)}`;
-      status.className = "ticket-status";
-      mostrarToast(`Venta #${venta.id} registrada — $${venta.total.toFixed(2)}`, "success");
-    } else {
-      const err = await res.json();
-      const msg = err.detail || "Error al procesar la venta";
-      status.textContent = msg;
-      status.className = "ticket-status error";
-      mostrarToast(msg, "error");
-      btnPay.disabled = false;
-    }
-  } catch (e) {
-    status.textContent = "Error de conexión con el servidor";
-    status.className = "ticket-status error";
-    mostrarToast("Error de conexión", "error");
-    btnPay.disabled = false;
-  } finally {
-    btnPay.textContent = "Cobrar";
+  appState.ws.onclose = () => {
+    reconnectWithBackoff(orderId);
+  };
+
+  appState.ws.onerror = () => {
+    setWsStatus('Reconectando…');
+  };
+}
+
+function reconnectWithBackoff(orderId) {
+  if (appState.wsRetries >= appState.wsMaxRetries) {
+    setWsStatus('Sin conexión en tiempo real. Usa "Consultar estado" si el tracker no avanza.');
+    return;
   }
+
+  const delay = Math.pow(2, appState.wsRetries) * 1000; // 1s, 2s, 4s
+  appState.wsRetries++;
+  setWsStatus(`Reconectando en ${delay / 1000}s…`);
+  setTimeout(() => connectWebSocket(orderId), delay);
 }
 
-// ---------------------------------------------------------------------------
-// Toast
-// ---------------------------------------------------------------------------
-
-let toastTimer = null;
-
-function mostrarToast(msg, tipo = "") {
-  const toast = document.getElementById("toast");
-  toast.textContent = msg;
-  toast.className = `toast ${tipo}`;
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toast.className = "toast hidden"; }, 3500);
+function setWsStatus(msg) {
+  const el = document.getElementById('ws-status');
+  if (el) el.textContent = msg;
 }
+
+// ─── Reset ────────────────────────────────────────────────────────────────────
+function startOver() {
+  if (appState.ws) {
+    appState.ws.onclose = null; // evitar reconexión al cerrar a propósito
+    appState.ws.close();
+    appState.ws = null;
+  }
+
+  appState.selectedSize     = null;
+  appState.selectedToppings = [];
+  appState.customerName     = '';
+  appState.currentOrder     = null;
+  appState.wsRetries        = 0;
+
+  const nameEl = document.getElementById('customer-name');
+  if (nameEl) nameEl.value = '';
+  const btnEl = document.getElementById('btn-order');
+  if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Ordenar 🍕'; }
+
+  // Limpiar selección visual de tamaños y toppings
+  document.querySelectorAll('.size-card').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.topping-card').forEach(c => c.classList.remove('selected'));
+  updatePriceDisplay();
+  showScreen('size');
+}
+
+// ─── Arranque ─────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', initApp);

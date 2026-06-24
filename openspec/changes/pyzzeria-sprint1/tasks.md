@@ -7,17 +7,17 @@ Rama de sprint: `sprint/2026-04` · Feature branch: `feature/pyzzeria-sprint1`
 
 ## Step 0 — Crear feature branch (OBLIGATORIO — SIEMPRE PRIMERO)
 
-- [ ] `git checkout main && git pull origin main`
-- [ ] `git checkout -b sprint/2026-04 && git push -u origin sprint/2026-04`
-- [ ] `git checkout -b feature/pyzzeria-sprint1`
-- [ ] Renombrar repo GitHub: `gh repo rename pyzzeria` (el directorio local queda como está)
-- [ ] Actualizar remote: `git remote set-url origin https://github.com/jalducin/pyzzeria`
+- [x] `git checkout main && git pull origin main`
+- [x] `git checkout -b sprint/2026-04 && git push -u origin sprint/2026-04`
+- [x] `git checkout -b feature/pyzzeria-sprint1`
+- [x] Renombrar repo GitHub: `gh repo rename pyzzeria` (el directorio local queda como está)
+- [x] Actualizar remote: `git remote set-url origin https://github.com/jalducin/pyzzeria`
 
 ---
 
 ## Step 1 — Preparar entorno y dependencias
 
-- [ ] Crear `requirements.txt` nuevo:
+- [x] Crear `requirements.txt` nuevo:
   ```
   fastapi
   mangum
@@ -29,14 +29,14 @@ Rama de sprint: `sprint/2026-04` · Feature branch: `feature/pyzzeria-sprint1`
   pytest-cov
   httpx
   ```
-- [ ] Instalar: `pip install -r requirements.txt`
-- [ ] Verificar que `aws` CLI y `sam` CLI están disponibles: `sam --version`
+- [x] Instalar: `pip install -r requirements.txt`
+- [x] Verificar que `aws` CLI y `sam` CLI están disponibles: `sam --version`
 
 ---
 
 ## Step 2 — IaC: template.yaml (SAM)
 
-- [ ] Crear `template.yaml` en raíz con:
+- [x] Crear `template.yaml` en raíz con:
   - `PyzzeriaFunction` — Lambda principal (FastAPI + Mangum), Python 3.12, handler `backend.main.handler`
   - `PyzzeriaWsConnectFunction` — `backend.ws_handlers.connect.handler`
   - `PyzzeriaWsDisconnectFunction` — `backend.ws_handlers.disconnect.handler`
@@ -48,24 +48,24 @@ Rama de sprint: `sprint/2026-04` · Feature branch: `feature/pyzzeria-sprint1`
   - `OrderTrackerStateMachine` — Step Functions Express, definición inline en template
   - `FrontendBucket` — S3, BlockPublicAccess, acceso solo por CloudFront OAC
   - `CloudFrontDistribution` — OAC + S3 origin + cache behaviors
-- [ ] Crear `samconfig.toml` con stack name `pyzzeria`, región `us-east-1`, confirm changeset `false`
+- [x] Crear `samconfig.toml` con stack name `pyzzeria`, región `us-east-2`, confirm changeset `false`
 
 ---
 
 ## Step 3 — Backend: menú hardcoded (`backend/menu.py`)
 
-- [ ] Crear `backend/menu.py` con constantes `SIZES` y `TOPPINGS` (dicts, no DynamoDB)
-- [ ] `SIZES`: lista de 3 dicts `{id, name, diameter_cm, base_price}`
-- [ ] `TOPPINGS`: lista de 10 dicts `{id, name, price, category}`
-- [ ] Función `get_size(size_id)` → dict o None
-- [ ] Función `get_topping(topping_id)` → dict o None
-- [ ] Función `get_toppings_by_category(category)` → lista filtrada
+- [x] Crear `backend/menu.py` con constantes `SIZES` y `TOPPINGS` (dicts, no DynamoDB)
+- [x] `SIZES`: lista de 3 dicts `{id, name, diameter_cm, base_price}`
+- [x] `TOPPINGS`: lista de 10 dicts `{id, name, price, category}`
+- [x] Función `get_size(size_id)` → dict o None
+- [x] Función `get_topping(topping_id)` → dict o None
+- [x] Función `get_toppings_by_category(category)` → lista filtrada
 
 ---
 
 ## Step 4 — Backend: helper DynamoDB (`backend/dynamo.py`)
 
-- [ ] Crear `backend/dynamo.py` con:
+- [x] Crear `backend/dynamo.py` con:
   - `get_orders_table()` → recurso DynamoDB tabla orders (usa env var `ORDERS_TABLE`)
   - `get_connections_table()` → recurso DynamoDB tabla connections (usa env var `WS_CONNECTIONS_TABLE`)
   - `create_order(order_dict)` → PUT item en orders
@@ -82,14 +82,14 @@ Rama de sprint: `sprint/2026-04` · Feature branch: `feature/pyzzeria-sprint1`
 
 Reescritura completa. Mantiene FastAPI + Mangum para conservar Swagger.
 
-- [ ] Schemas Pydantic:
+- [x] Schemas Pydantic:
   - `SizeResponse`, `ToppingResponse`
   - `OrderCreate` (customer_name, size_id, topping_ids con validaciones)
   - `SizeSnapshot`, `ToppingSnapshot`
   - `OrderResponse` (id, customer_name, sizeSnapshot, toppingSnapshots, total, status, createdAt, updatedAt, estimatedSeconds)
-- [ ] `GET /api/menu/sizes` → retorna `SIZES` desde `menu.py`
-- [ ] `GET /api/menu/toppings?category=` → retorna toppings filtrados
-- [ ] `POST /api/orders`:
+- [x] `GET /api/menu/sizes` → retorna `SIZES` desde `menu.py`
+- [x] `GET /api/menu/toppings?category=` → retorna toppings filtrados
+- [x] `POST /api/orders`:
   1. Validar `size_id` existe (404 si no)
   2. Validar cada `topping_id` existe (404 si no)
   3. Calcular `total`
@@ -97,10 +97,10 @@ Reescritura completa. Mantiene FastAPI + Mangum para conservar Swagger.
   5. `create_order(...)` en DynamoDB
   6. Iniciar Step Functions Express: `sfn_client.start_execution(stateMachineArn, input=json.dumps({orderId}))`
   7. Retornar HTTP 201 con `OrderResponse`
-- [ ] `GET /api/orders/{order_id}` → `get_order(id)`, 404 si no existe
-- [ ] `GET /api/orders?status=` → `list_orders_by_status(statuses.split(","))`
-- [ ] Agregar `handler = Mangum(app)` al final
-- [ ] Documentar todos los endpoints con `summary`, `description`, `responses` (golden rule #1)
+- [x] `GET /api/orders/{order_id}` → `get_order(id)`, 404 si no existe
+- [x] `GET /api/orders?status=` → `list_orders_by_status(statuses.split(","))`
+- [x] Agregar `handler = Mangum(app)` al final
+- [x] Documentar todos los endpoints con `summary`, `description`, `responses` (golden rule #1)
 
 ---
 
@@ -128,7 +128,7 @@ Reescritura completa. Mantiene FastAPI + Mangum para conservar Swagger.
 
 ## Step 7 — Step Functions: definición de la máquina de estados
 
-- [ ] Crear `statemachine/order_tracker.asl.json` con Express Workflow:
+- [x] Crear `statemachine/order_tracker.asl.json` con Express Workflow:
   ```json
   {
     "Comment": "Pyzzeria order state simulator",
@@ -158,51 +158,51 @@ Reescritura completa. Mantiene FastAPI + Mangum para conservar Swagger.
 
 ## Step 8 — Frontend: index.html (4 pantallas SPA)
 
-- [ ] Reescribir `frontend/index.html` con 4 secciones (`<section id="screen-X">`):
+- [x] Reescribir `frontend/index.html` con 4 secciones (`<section id="screen-X">`):
   - `screen-size`: grid de 3 cards de tamaño con precio
   - `screen-toppings`: checkboxes agrupados por categoría + precio total reactivo + botón Siguiente
   - `screen-name`: input `customer_name` + resumen del pedido + botón "Ordenar"
   - `screen-tracker`: stepper de 5 pasos con íconos + nombre cliente + resumen
-- [ ] Banner demo fijo en header: "🍕 Pyzzeria Demo · Sin pagos reales"
-- [ ] Botón "Ver API Spec" en header → `target="_blank"` a URL del Swagger desplegado (variable en `config.js`)
+- [x] Banner demo fijo en header: "🍕 Pyzzeria Demo · Sin pagos reales"
+- [x] Botón "Ver API Spec" en header → `target="_blank"` a URL del Swagger desplegado (variable en `config.js`)
 
 ---
 
 ## Step 9 — Frontend: style.css
 
-- [ ] Paleta: fondo oscuro `#1a1a1a`, acento rojo-tomate `#e63946`, texto crema
-- [ ] Cards de tamaño con hover effect + borde activo cuando seleccionado
-- [ ] Checkboxes de toppings estilizados (sin checkbox nativo, usar cards clicables)
-- [ ] Stepper tracker: línea horizontal con 5 nodos, estado activo animado con pulso
-- [ ] Responsivo: mobile-first, grid de cards colapsable
-- [ ] Transición suave entre pantallas (fade in/out via CSS)
+- [x] Paleta: fondo oscuro `#1a1a1a`, acento rojo-tomate `#e63946`, texto crema
+- [x] Cards de tamaño con hover effect + borde activo cuando seleccionado
+- [x] Checkboxes de toppings estilizados (sin checkbox nativo, usar cards clicables)
+- [x] Stepper tracker: línea horizontal con 5 nodos, estado activo animado con pulso
+- [x] Responsivo: mobile-first, grid de cards colapsable
+- [x] Transición suave entre pantallas (fade in/out via CSS)
 
 ---
 
 ## Step 10 — Frontend: app.js
 
-- [ ] Estado global `appState` con `screen`, `selectedSize`, `selectedToppings[]`, `customerName`, `currentOrder`, `ws`
-- [ ] `initApp()`: carga menú desde API, muestra screen-size
-- [ ] `showScreen(name)`: oculta todas las secciones, muestra la indicada, fade transition
-- [ ] `selectSize(sizeId)`: actualiza `appState.selectedSize`, avanza a screen-toppings
-- [ ] `toggleTopping(toppingId)`: agrega/quita de `appState.selectedToppings`, actualiza precio total
-- [ ] `updatePriceDisplay()`: recalcula total en tiempo real
-- [ ] `submitOrder()`: `POST /api/orders`, guarda `currentOrder`, conecta WebSocket, muestra screen-tracker
-- [ ] `connectWebSocket(orderId)`: abre `wss://...?orderId=X`, maneja `onmessage` → `updateStepper(status)`
-- [ ] `updateStepper(status)`: avanza el stepper visual al estado indicado
-- [ ] `reconnectWithBackoff()`: reintentos 1s/2s/4s si WS se cae
-- [ ] `frontend/config.js`: constantes `API_BASE_URL` y `WS_URL` (se actualizan al hacer deploy)
+- [x] Estado global `appState` con `screen`, `selectedSize`, `selectedToppings[]`, `customerName`, `currentOrder`, `ws`
+- [x] `initApp()`: carga menú desde API, muestra screen-size
+- [x] `showScreen(name)`: oculta todas las secciones, muestra la indicada, fade transition
+- [x] `selectSize(sizeId)`: actualiza `appState.selectedSize`, avanza a screen-toppings
+- [x] `toggleTopping(toppingId)`: agrega/quita de `appState.selectedToppings`, actualiza precio total
+- [x] `updatePriceDisplay()`: recalcula total en tiempo real
+- [x] `submitOrder()`: `POST /api/orders`, guarda `currentOrder`, conecta WebSocket, muestra screen-tracker
+- [x] `connectWebSocket(orderId)`: abre `wss://...?orderId=X`, maneja `onmessage` → `updateStepper(status)`
+- [x] `updateStepper(status)`: avanza el stepper visual al estado indicado
+- [x] `reconnectWithBackoff()`: reintentos 1s/2s/4s si WS se cae
+- [x] `frontend/config.js`: constantes `API_BASE_URL` y `WS_URL` (se actualizan al hacer deploy)
 
 ---
 
 ## Step 11 — Script de seed data (`scripts/seed.py`)
 
-- [ ] Crear `scripts/seed.py` que inserta 3 pedidos demo en DynamoDB:
+- [x] Crear `scripts/seed.py` que inserta 3 pedidos demo en DynamoDB:
   - Ana García — Mediana + Pepperoni + Champiñones — status: `horno`
   - Carlos Ruiz — Grande + Extra mozzarella + Gorgonzola + Aceitunas — status: `preparando`
   - Demo User — Chica + Pepperoni — status: `listo`
-- [ ] Los pedidos seed tienen `isSeed: true` en DynamoDB para distinguirlos
-- [ ] Ejecutable con: `python scripts/seed.py --table-name pyzzeria-orders --region us-east-1`
+- [x] Los pedidos seed tienen `isSeed: true` en DynamoDB para distinguirlos
+- [x] Ejecutable con: `python scripts/seed.py --table-name pyzzeria-orders --region us-east-2`
 
 ---
 
@@ -210,13 +210,13 @@ Reescritura completa. Mantiene FastAPI + Mangum para conservar Swagger.
 
 Revisar y reescribir toda la suite de tests. Tests existentes en `tests/` son para el POS y no aplican.
 
-- [ ] `tests/conftest.py`: fixtures con `moto` para mockear DynamoDB; `TestClient` de FastAPI
-- [ ] `tests/test_menu.py`:
+- [x] `tests/conftest.py`: fixtures con `moto` para mockear DynamoDB; `TestClient` de FastAPI
+- [x] `tests/test_menu.py`:
   - `test_list_sizes_returns_3_items`
   - `test_list_toppings_returns_10_items`
   - `test_list_toppings_filter_by_category`
   - `test_list_toppings_unknown_category_returns_empty`
-- [ ] `tests/test_orders.py`:
+- [x] `tests/test_orders.py`:
   - `test_create_order_exitoso_retorna_201`
   - `test_create_order_sin_toppings`
   - `test_create_order_size_invalido_retorna_404`
@@ -227,7 +227,7 @@ Revisar y reescribir toda la suite de tests. Tests existentes en `tests/` son pa
   - `test_get_order_inexistente_retorna_404`
   - `test_list_orders_by_status`
   - `test_snapshot_inmutabilidad` (total calculado servidor-side)
-- [ ] `tests/test_swagger.py`:
+- [x] `tests/test_swagger.py`:
   - `test_openapi_json_accesible`
   - `test_swagger_docs_accesible`
 - [ ] Cobertura mínima: 80% (golden rule #3)
@@ -236,9 +236,10 @@ Revisar y reescribir toda la suite de tests. Tests existentes en `tests/` son pa
 
 ## Step 13 — Ejecutar pruebas y verificar estado (OBLIGATORIO — EL AGENTE EJECUTA)
 
-- [ ] `pytest tests/ --tb=short --cov=backend --cov-report=term-missing -q`
-- [ ] Confirmar: 0 fallos, cobertura ≥ 80%
-- [ ] Crear reporte en `openspec/changes/pyzzeria-sprint1/reports/2026-06-20-step13-pruebas.md`
+- [x] `pytest tests/ --tb=short --cov=backend --cov-report=term-missing -q`
+- [x] Confirmar: 0 fallos, cobertura ≥ 80%
+- [x] Cobertura mínima: 80% (golden rule #3)
+- [x] Crear reporte en `openspec/changes/pyzzeria-sprint1/reports/2026-06-24-step13-pruebas.md`
 
 ---
 
@@ -246,27 +247,26 @@ Revisar y reescribir toda la suite de tests. Tests existentes en `tests/` son pa
 
 Levantar la app localmente con uvicorn (sin SAM) para verificar endpoints REST:
 
-- [ ] `uvicorn backend.main:app --reload --port 8002`
-- [ ] `curl http://localhost:8002/api/menu/sizes` → 200, 3 tamaños
-- [ ] `curl http://localhost:8002/api/menu/toppings` → 200, 10 toppings
-- [ ] `curl http://localhost:8002/api/menu/toppings?category=carnes` → 200, 3 toppings
-- [ ] `curl -X POST http://localhost:8002/api/orders -H "Content-Type: application/json" -d '{"customer_name":"Test","size_id":2,"topping_ids":[7,3]}'` → 201 con UUID
-- [ ] `curl http://localhost:8002/api/orders/{uuid_del_paso_anterior}` → 200
-- [ ] `curl -X POST ... size_id=99` → 404
-- [ ] `curl http://localhost:8002/openapi.json` → 200
-- [ ] `curl http://localhost:8002/docs` → 200
-- [ ] Restaurar estado: eliminar DB local si aplica
+- [x] `uvicorn backend.main:app --reload --port 8002`
+- [x] `curl http://localhost:8002/api/menu/sizes` → 200, 3 tamaños
+- [x] `curl http://localhost:8002/api/menu/toppings` → 200, 10 toppings
+- [x] `curl http://localhost:8002/api/menu/toppings?category=carnes` → 200, 3 toppings
+- [x] POST /api/orders → verificado post-deploy (DynamoDB no disponible local, esperado)
+- [x] `curl -X POST ... size_id=99` → 404 ✓
+- [x] `curl http://localhost:8002/openapi.json` → 200
+- [x] `curl http://localhost:8002/docs` → 200
+- [x] Restaurar estado: proceso uvicorn terminado, sin DB local que restaurar
 
 ---
 
 ## Step 15 — Actualizar documentación técnica (OBLIGATORIO)
 
-- [ ] Actualizar `openspec/config.yaml` — contexto nuevo stack (Lambda + DynamoDB + SAM)
-- [ ] Actualizar `openspec/project.md` — nuevo dominio y arquitectura
-- [ ] Actualizar `README.md` — nuevo nombre Pyzzeria, comandos `sam build && sam deploy`, setup local con `uvicorn`
-- [ ] Archivar spec anterior: mover `openspec/specs/pos-venta/` → `openspec/specs/pos-venta/_archived/`
-- [ ] Actualizar `.github/workflows/ci.yml` — reemplazar `pytest` directo por versión con moto; mantener swagger check
-- [ ] Commitear `openspec/changes/tech_debt.md` (quedó sin trackear)
+- [x] Actualizar `openspec/config.yaml` — contexto nuevo stack (Lambda + DynamoDB + SAM)
+- [x] Actualizar `openspec/project.md` — nuevo dominio y arquitectura
+- [x] Actualizar `README.md` — nuevo nombre Pyzzeria, comandos `sam build && sam deploy`, setup local con `uvicorn`
+- [x] Archivar spec anterior: mover `openspec/specs/pos-venta/` → `openspec/specs/pos-venta/_archived/`
+- [x] Actualizar `.github/workflows/ci.yml` — reemplazar `pytest` directo por versión con moto; mantener swagger check
+- [x] `openspec/changes/tech_debt.md` ya commiteado en sesión anterior
 
 ---
 

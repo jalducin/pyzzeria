@@ -2,34 +2,46 @@
 
 ## Qué es
 
-Sistema de Punto de Venta (POS) demo para practicar Spec-Driven Development de punta a punta.
-Permite a un cajero seleccionar productos de un catálogo, armar un ticket en tiempo real y
-confirmar el cobro, descontando el stock de forma atómica en la base de datos.
+**Pyzzeria** — sistema de pedidos de pizza serverless en AWS Free Tier, demo de portafolio.
+Un visitante elige tamaño y toppings, deja su nombre, y ve el tracker en tiempo real durante ~70 segundos
+mientras su pedido "avanza" por 5 estados (recibido → preparando → horno → listo → entregado).
+
+Objetivo: demostrar Lambda, DynamoDB, Step Functions, API Gateway WebSocket y S3+CloudFront
+en un solo proyecto desplegable con un comando (`sam build && sam deploy`).
 
 ## Stack tecnológico
 
-- Lenguaje: Python 3.12
-- Framework backend: FastAPI
-- Base de datos: SQLite (driver nativo `sqlite3`, sin ORM)
-- Frontend: HTML + CSS + JS vainilla (sin frameworks ni build step), servido por `StaticFiles`
+- **Lenguaje**: Python 3.12
+- **Framework backend**: FastAPI + Mangum (adaptador ASGI→Lambda)
+- **Base de datos**: DynamoDB on-demand (sin instancia persistente)
+- **IaC**: AWS SAM (`template.yaml`)
+- **Frontend**: HTML + CSS + JS vainilla (SPA 4 pantallas), servido desde S3 + CloudFront
 
 ## Arquitectura
 
-Monolito ligero de 2 capas:
-- `backend/` — FastAPI app: rutas, validación de negocio y acceso a datos en `main.py`; schema + seed en `database.py`.
-- `frontend/` — SPA vainilla: estado del carrito en memoria, fetch a la API, render reactivo sin build step.
-
-Sin ORM: con 3 tablas, SQL directo con `sqlite3.Row` es suficiente y más legible.
+```
+Visitante
+  ├─ GET /api/menu/*         → Lambda (FastAPI+Mangum) → menú hardcoded
+  ├─ POST /api/orders        → Lambda → DynamoDB + Step Functions Express start
+  ├─ GET /api/orders/{id}    → Lambda → DynamoDB
+  ├─ WSS connect             → Lambda WS @connect → DynamoDB ws_connections
+  └─ Step Functions Express (~70s):
+       cada estado → Lambda status_update → DynamoDB UPDATE + WSS push → stepper avanza
+Frontend (S3 + CloudFront, HTTPS)
+```
 
 ## Convenciones
 
-- Idioma: documentación y comentarios en español; identificadores de código en inglés (convención Python/JS).
+- Idioma: documentación y comentarios en español; identificadores de código en inglés.
 - Commits: conventional commits.
-- Ramas: `feature/[change-name]`.
+- Ramas: `feature/[spec]` → `sprint/YYYY-NN` → `main`.
 - Estándares en `docs/base-standards.md` y `docs/documentation-standards.md`.
 
 ## Comandos clave
 
-- Instalar dependencias: `pip install fastapi uvicorn`
-- Levantar el proyecto: `uvicorn backend.main:app --reload`
-- Ejecutar pruebas: `pytest`
+- Instalar dependencias: `pip install -r requirements.txt`
+- Dev local (sin DynamoDB): `uvicorn backend.main:app --reload`
+- Ejecutar pruebas: `pytest --cov=backend`
+- Build IaC: `sam build`
+- Deploy completo: `sam deploy` (primera vez: `sam deploy --guided`)
+- Seed data: `python scripts/seed.py --table-name pyzzeria-orders --region us-east-2`

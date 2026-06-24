@@ -1,0 +1,398 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Pyzzeria — demo serverless de pedidos de pizza (Lambda + DynamoDB + WebSocket + S3/CloudFront)
+
+Globals:
+  Function:
+    Runtime: python3.12
+    MemorySize: 256
+    Timeout: 30
+    Environment:
+      Variables:
+        ORDERS_TABLE: !Ref OrdersTable
+        WS_CONNECTIONS_TABLE: !Ref WsConnectionsTable
+        STATE_MACHINE_ARN: !Ref OrderTrackerStateMachine
+
+Resources:
+
+  # ---------------------------------------------------------------------------
+  # DynamoDB
+  # ---------------------------------------------------------------------------
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: pyzzeria-orders
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: orderId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: orderId
+          KeyType: HASH
+
+  WsConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: pyzzeria-ws-connections
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: connectionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connectionId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # ---------------------------------------------------------------------------
+  # Lambda — API principal (FastAPI + Mangum)
+  # ---------------------------------------------------------------------------
+  PyzzeriaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: pyzzeria-api
+      Handler: backend.main.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+        - Statement:
+            - Effect: Allow
+              Action: states:StartExecution
+              Resource: !Ref OrderTrackerStateMachine
+      Events:
+        ApiProxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /api/{proxy+}
+            Method: ANY
+        ApiRoot:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /api/
+            Method: ANY
+        DocsSwagger:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /docs
+            Method: GET
+        DocsOpenapi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /openapi.json
+            Method: GET
+
+  # ---------------------------------------------------------------------------
+  # Lambda — WebSocket handlers
+  # ---------------------------------------------------------------------------
+  PyzzeriaWsConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: pyzzeria-ws-connect
+      Handler: backend.ws_handlers.connect.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WsConnectionsTable
+
+  PyzzeriaWsDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: pyzzeria-ws-disconnect
+      Handler: backend.ws_handlers.disconnect.handler
+      CodeUri: .
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WsConnectionsTable
+
+  PyzzeriaStatusUpdateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: pyzzeria-status-update
+      Handler: backend.ws_handlers.status_update.handler
+      CodeUri: .
+      Environment:
+        Variables:
+          WS_ENDPOINT_URL: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WsConnectionsTable
+        - Statement:
+            - Effect: Allow
+              Action: execute-api:ManageConnections
+              Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+
+  # ---------------------------------------------------------------------------
+  # API Gateway HTTP API
+  # ---------------------------------------------------------------------------
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: pyzzeria-http-api
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+
+  # ---------------------------------------------------------------------------
+  # API Gateway WebSocket API
+  # ---------------------------------------------------------------------------
+  WebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: pyzzeria-ws-api
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  WsConnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PyzzeriaWsConnectFunction.Arn}/invocations"
+
+  WsDisconnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PyzzeriaWsDisconnectFunction.Arn}/invocations"
+
+  WsConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      Target: !Sub "integrations/${WsConnectIntegration}"
+
+  WsDisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      Target: !Sub "integrations/${WsDisconnectIntegration}"
+
+  WsStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref WebSocketApi
+      StageName: prod
+      AutoDeploy: true
+
+  WsConnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt PyzzeriaWsConnectFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+
+  WsDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt PyzzeriaWsDisconnectFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+
+  # ---------------------------------------------------------------------------
+  # Step Functions Express Workflow
+  # ---------------------------------------------------------------------------
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeStatusUpdate
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt PyzzeriaStatusUpdateFunction.Arn
+
+  OrderTrackerStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: pyzzeria-order-tracker
+      StateMachineType: EXPRESS
+      RoleArn: !GetAtt StepFunctionsRole.Arn
+      DefinitionString: !Sub |
+        {
+          "Comment": "Pyzzeria order state simulator",
+          "StartAt": "WaitToPreparando",
+          "States": {
+            "WaitToPreparando": {
+              "Type": "Wait",
+              "Seconds": 8,
+              "Next": "SetPreparando"
+            },
+            "SetPreparando": {
+              "Type": "Task",
+              "Resource": "${PyzzeriaStatusUpdateFunction.Arn}",
+              "Parameters": {
+                "orderId.$": "$.orderId",
+                "newStatus": "preparando",
+                "estimatedSeconds": 12
+              },
+              "Next": "WaitToHorno"
+            },
+            "WaitToHorno": {
+              "Type": "Wait",
+              "Seconds": 12,
+              "Next": "SetHorno"
+            },
+            "SetHorno": {
+              "Type": "Task",
+              "Resource": "${PyzzeriaStatusUpdateFunction.Arn}",
+              "Parameters": {
+                "orderId.$": "$.orderId",
+                "newStatus": "horno",
+                "estimatedSeconds": 20
+              },
+              "Next": "WaitToListo"
+            },
+            "WaitToListo": {
+              "Type": "Wait",
+              "Seconds": 20,
+              "Next": "SetListo"
+            },
+            "SetListo": {
+              "Type": "Task",
+              "Resource": "${PyzzeriaStatusUpdateFunction.Arn}",
+              "Parameters": {
+                "orderId.$": "$.orderId",
+                "newStatus": "listo",
+                "estimatedSeconds": 30
+              },
+              "Next": "WaitToEntregado"
+            },
+            "WaitToEntregado": {
+              "Type": "Wait",
+              "Seconds": 30,
+              "Next": "SetEntregado"
+            },
+            "SetEntregado": {
+              "Type": "Task",
+              "Resource": "${PyzzeriaStatusUpdateFunction.Arn}",
+              "Parameters": {
+                "orderId.$": "$.orderId",
+                "newStatus": "entregado",
+                "estimatedSeconds": null
+              },
+              "End": true
+            }
+          }
+        }
+
+  # ---------------------------------------------------------------------------
+  # S3 + CloudFront para el frontend estático
+  # ---------------------------------------------------------------------------
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "pyzzeria-frontend-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: pyzzeria-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${FrontendBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized
+          AllowedMethods:
+            - GET
+            - HEAD
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+Outputs:
+  HttpApiUrl:
+    Description: URL del API Gateway HTTP
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+    Export:
+      Name: PyzzeriaHttpApiUrl
+
+  WebSocketUrl:
+    Description: URL del API Gateway WebSocket
+    Value: !Sub "wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+    Export:
+      Name: PyzzeriaWebSocketUrl
+
+  CloudFrontDomain:
+    Description: Dominio público de CloudFront (frontend)
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: PyzzeriaCloudFrontDomain
+
+  FrontendBucketName:
+    Description: Nombre del bucket S3 del frontend
+    Value: !Ref FrontendBucket
+    Export:
+      Name: PyzzeriaFrontendBucket

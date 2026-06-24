@@ -14,6 +14,14 @@ jobs:
     name: Tests + Swagger check
     runs-on: ubuntu-latest
 
+    env:
+      ORDERS_TABLE: test-orders
+      WS_CONNECTIONS_TABLE: test-ws-connections
+      STATE_MACHINE_ARN: ""
+      AWS_DEFAULT_REGION: us-east-2
+      AWS_ACCESS_KEY_ID: testing
+      AWS_SECRET_ACCESS_KEY: testing
+
     steps:
       - uses: actions/checkout@v4
 
@@ -24,27 +32,15 @@ jobs:
           cache: 'pip'
 
       - name: Instalar dependencias
-        run: |
-          pip install --upgrade pip
-          pip install fastapi uvicorn pytest httpx pytest-cov
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        run: pip install -r requirements.txt
 
-      - name: Ejecutar pruebas unitarias
-        run: |
-          pytest --tb=short --cov=backend --cov-report=term-missing -q
+      - name: Ejecutar pruebas unitarias (moto)
+        run: pytest --tb=short --cov=backend --cov-report=term-missing -q
 
       - name: Verificar que Swagger está accesible
         run: |
-          uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
+          python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
           sleep 3
           curl -f http://localhost:8000/openapi.json || (echo "ERROR: /openapi.json no accesible" && exit 1)
-          curl -f http://localhost:8000/docs || (echo "ERROR: /docs no accesible" && exit 1)
+          curl -f http://localhost:8000/docs        || (echo "ERROR: /docs no accesible" && exit 1)
           echo "Swagger OK"
-
-      - name: Verificar que auth está protegido
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/sales)
-          if [ "$STATUS" != "401" ] && [ "$STATUS" != "200" ]; then
-            echo "WARN: /api/sales respondió $STATUS (esperado 200 o 401)"
-          fi
-          echo "Auth check OK (status: $STATUS)"

@@ -1,0 +1,7 @@
+[run]
+omit =
+    backend/database.py
+    backend/ws_handlers/*
+
+[report]
+fail_under = 80

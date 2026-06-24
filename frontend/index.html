@@ -1,40 +1,109 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>POS Demo</title>
-  <link rel="stylesheet" href="/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pyzzeria 🍕</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app">
-    <header class="header">
-      <h1>🛒 POS Demo</h1>
-      <nav id="category-nav" class="category-nav"></nav>
-    </header>
 
-    <div class="layout">
-      <main class="products-grid" id="products-grid">
-        <p class="loading">Cargando catálogo…</p>
-      </main>
-
-      <aside class="ticket">
-        <h2 class="ticket-title">— Ticket —</h2>
-        <ul class="ticket-items" id="ticket-items"></ul>
-        <div class="ticket-divider"></div>
-        <div class="ticket-total">
-          <span>TOTAL</span>
-          <span id="ticket-total-amount">$0.00</span>
-        </div>
-        <button class="btn-pay" id="btn-pay" onclick="confirmarCobro()" disabled>
-          Cobrar
-        </button>
-        <p class="ticket-status" id="ticket-status"></p>
-      </aside>
+  <!-- Header fijo -->
+  <header class="site-header">
+    <div class="header-inner">
+      <span class="logo">🍕 Pyzzeria</span>
+      <div class="header-actions">
+        <span class="demo-badge">Demo · Sin pagos reales</span>
+        <a id="btn-spec" class="btn-spec" href="#" target="_blank" rel="noopener">Ver API Spec</a>
+      </div>
     </div>
-  </div>
+  </header>
 
-  <div id="toast" class="toast hidden"></div>
-  <script src="/app.js"></script>
+  <main>
+
+    <!-- Pantalla 1: Tamaño -->
+    <section id="screen-size" class="screen active">
+      <h1>Elige tu tamaño</h1>
+      <p class="subtitle">Precio base incluido</p>
+      <div id="sizes-grid" class="sizes-grid"></div>
+    </section>
+
+    <!-- Pantalla 2: Toppings -->
+    <section id="screen-toppings" class="screen">
+      <button class="btn-back" onclick="showScreen('size')">← Volver</button>
+      <h1>Elige tus toppings</h1>
+      <p class="subtitle">Máximo 8 · Opcional</p>
+      <div id="toppings-by-category"></div>
+      <div class="order-summary">
+        <span>Total estimado:</span>
+        <span id="price-display" class="price">$0.00</span>
+      </div>
+      <button class="btn-primary" onclick="goToName()">Siguiente →</button>
+    </section>
+
+    <!-- Pantalla 3: Nombre -->
+    <section id="screen-name" class="screen">
+      <button class="btn-back" onclick="showScreen('toppings')">← Volver</button>
+      <h1>¿Cómo te llamamos?</h1>
+      <div class="name-form">
+        <div class="order-recap" id="order-recap"></div>
+        <label for="customer-name" class="sr-only">Tu nombre</label>
+        <input
+          id="customer-name"
+          type="text"
+          placeholder="Tu nombre (ej. Ana García)"
+          maxlength="50"
+          autocomplete="off"
+        />
+        <button class="btn-primary" id="btn-order" onclick="submitOrder()">
+          Ordenar 🍕
+        </button>
+        <p id="order-error" class="error-msg hidden"></p>
+      </div>
+    </section>
+
+    <!-- Pantalla 4: Tracker -->
+    <section id="screen-tracker" class="screen">
+      <h1>¡Tu pedido está en camino!</h1>
+      <p id="tracker-customer" class="tracker-name"></p>
+
+      <div class="stepper">
+        <div class="stepper-track"></div>
+        <div class="step" data-status="recibido">
+          <div class="step-node">🍕</div>
+          <span class="step-label">Recibido</span>
+        </div>
+        <div class="step" data-status="preparando">
+          <div class="step-node">👨‍🍳</div>
+          <span class="step-label">Preparando</span>
+        </div>
+        <div class="step" data-status="horno">
+          <div class="step-node">🔥</div>
+          <span class="step-label">En horno</span>
+        </div>
+        <div class="step" data-status="listo">
+          <div class="step-node">✅</div>
+          <span class="step-label">Listo</span>
+        </div>
+        <div class="step" data-status="entregado">
+          <div class="step-node">🎉</div>
+          <span class="step-label">Entregado</span>
+        </div>
+      </div>
+
+      <div class="tracker-info">
+        <p id="tracker-status-msg" class="status-msg"></p>
+        <div class="tracker-order-summary" id="tracker-summary"></div>
+      </div>
+
+      <div id="ws-status" class="ws-status"></div>
+
+      <button class="btn-secondary" onclick="startOver()">Hacer otro pedido</button>
+    </section>
+
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

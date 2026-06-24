@@ -1,0 +1,66 @@
+{
+  "Comment": "Pyzzeria order state simulator — ~70s ciclo completo",
+  "StartAt": "WaitToPreparando",
+  "States": {
+    "WaitToPreparando": {
+      "Type": "Wait",
+      "Seconds": 8,
+      "Next": "SetPreparando"
+    },
+    "SetPreparando": {
+      "Type": "Task",
+      "Resource": "${StatusUpdateFunctionArn}",
+      "Parameters": {
+        "orderId.$": "$.orderId",
+        "newStatus": "preparando",
+        "estimatedSeconds": 12
+      },
+      "Next": "WaitToHorno"
+    },
+    "WaitToHorno": {
+      "Type": "Wait",
+      "Seconds": 12,
+      "Next": "SetHorno"
+    },
+    "SetHorno": {
+      "Type": "Task",
+      "Resource": "${StatusUpdateFunctionArn}",
+      "Parameters": {
+        "orderId.$": "$.orderId",
+        "newStatus": "horno",
+        "estimatedSeconds": 20
+      },
+      "Next": "WaitToListo"
+    },
+    "WaitToListo": {
+      "Type": "Wait",
+      "Seconds": 20,
+      "Next": "SetListo"
+    },
+    "SetListo": {
+      "Type": "Task",
+      "Resource": "${StatusUpdateFunctionArn}",
+      "Parameters": {
+        "orderId.$": "$.orderId",
+        "newStatus": "listo",
+        "estimatedSeconds": 30
+      },
+      "Next": "WaitToEntregado"
+    },
+    "WaitToEntregado": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "SetEntregado"
+    },
+    "SetEntregado": {
+      "Type": "Task",
+      "Resource": "${StatusUpdateFunctionArn}",
+      "Parameters": {
+        "orderId.$": "$.orderId",
+        "newStatus": "entregado",
+        "estimatedSeconds": null
+      },
+      "End": true
+    }
+  }
+}

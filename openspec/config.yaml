@@ -7,11 +7,12 @@ schema: spec-driven
 # Sirve para cualquier stack (Python, PHP, React, n8n, etc.).
 # ---------------------------------------------------------------------------
 context: |
-  Stack tecnológico: Python 3.12, FastAPI, SQLite (sqlite3 nativo, sin ORM), JS vainilla.
-  Arquitectura: monolito ligero — backend FastAPI + frontend vainilla servido por StaticFiles.
-  Dominio: punto de venta (POS) demo — cajero selecciona productos, arma ticket y confirma cobro con descuento atómico de stock.
+  Stack tecnológico: Python 3.12, FastAPI + Mangum, DynamoDB (boto3), AWS Lambda, API Gateway HTTP + WebSocket, Step Functions Express, S3 + CloudFront, SAM IaC, JS vainilla.
+  Arquitectura: serverless — Lambda + Mangum (FastAPI), DynamoDB on-demand, WebSocket push via Step Functions, frontend estático en S3/CloudFront.
+  Dominio: Pyzzeria — demo de pedidos de pizza serverless en AWS Free Tier para portafolio. Visitante elige tamaño y toppings, crea pedido, ve tracker en tiempo real ~70s.
   Idioma: documentación y comentarios en español; identificadores de código según convención del lenguaje.
   Control de versiones: conventional commits.
+  Ramas: feature/[spec] → sprint/YYYY-NN → main.
 
   Estándares del proyecto (fuente única de verdad): toda creación e implementación de
   artefactos DEBE seguir el contexto técnico en docs/. Leer y aplicar:

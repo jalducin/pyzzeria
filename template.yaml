@@ -11,7 +11,6 @@ Globals:
       Variables:
         ORDERS_TABLE: !Ref OrdersTable
         WS_CONNECTIONS_TABLE: !Ref WsConnectionsTable
-        STATE_MACHINE_ARN: !Ref OrderTrackerStateMachine
 
 Resources:
 
@@ -54,6 +53,9 @@ Resources:
       FunctionName: pyzzeria-api
       Handler: backend.main.handler
       CodeUri: .
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref OrderTrackerStateMachine
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OrdersTable

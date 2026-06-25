@@ -6,9 +6,20 @@ Uso:
 """
 import argparse
 import uuid
+from decimal import Decimal
 from datetime import datetime, timezone
 
 import boto3
+
+
+def _to_decimal(obj):
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    if isinstance(obj, dict):
+        return {k: _to_decimal(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_to_decimal(v) for v in obj]
+    return obj
 
 
 SEED_ORDERS = [
@@ -64,8 +75,8 @@ def seed(table_name: str, region: str) -> None:
             "updated_at": now,
             "estimated_seconds": None,
         }
-        table.put_item(Item=item)
-        print(f"  ✓ {order['customer_name']} — {order['status']}")
+        table.put_item(Item=_to_decimal(item))
+        print(f"  OK {order['customer_name']} - {order['status']}")
 
     print(f"\n3 pedidos seed insertados en '{table_name}'.")
 

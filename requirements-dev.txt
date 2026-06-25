@@ -1,0 +1,6 @@
+-r requirements.txt
+uvicorn[standard]
+moto[dynamodb]
+pytest
+pytest-cov
+httpx

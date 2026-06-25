@@ -242,6 +242,53 @@ function updateStepper(status) {
 
   const msgEl = document.getElementById('tracker-status-msg');
   if (msgEl) msgEl.textContent = STATUS_MSGS[status] || '';
+
+  updateStateVisual(status);
+}
+
+function updateStateVisual(status) {
+  const el = document.getElementById('state-visual');
+  if (!el) return;
+
+  if (status === 'horno') {
+    el.innerHTML = `
+      <div class="scene-oven">
+        <div class="oven-flames"><span>🔥</span><span>🔥</span><span>🔥</span></div>
+        <div class="oven-body">
+          <div class="oven-glass"><span class="pizza-spin">🍕</span></div>
+          <div class="oven-knobs"><span></span><span></span></div>
+        </div>
+        <p class="scene-label">Cocinando a 300°C 🌡️</p>
+      </div>`;
+  } else if (status === 'en_ruta') {
+    el.innerHTML = `
+      <div class="scene-map">
+        <div class="map-viewport">
+          <svg class="map-bg" viewBox="0 0 300 120" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <rect width="300" height="120" fill="#182218"/>
+            <rect x="0" y="48" width="300" height="24" fill="#243224"/>
+            <rect x="98" y="0" width="18" height="48" fill="#243224"/>
+            <rect x="98" y="72" width="18" height="48" fill="#243224"/>
+            <rect x="196" y="0" width="18" height="48" fill="#243224"/>
+            <rect x="196" y="72" width="18" height="48" fill="#243224"/>
+            <rect x="8"   y="6"  width="78" height="30" fill="#1e2e1e" rx="4"/>
+            <rect x="128" y="6"  width="56" height="30" fill="#1e2e1e" rx="4"/>
+            <rect x="226" y="6"  width="66" height="30" fill="#1e2e1e" rx="4"/>
+            <rect x="8"   y="84" width="78" height="28" fill="#1e2e1e" rx="4"/>
+            <rect x="128" y="84" width="56" height="28" fill="#1e2e1e" rx="4"/>
+            <rect x="226" y="84" width="66" height="28" fill="#1e2e1e" rx="4"/>
+            <line x1="0"  y1="60" x2="300" y2="60" stroke="#ffffff08" stroke-width="1.5" stroke-dasharray="10 6"/>
+            <line x1="28" y1="60" x2="272" y2="60" stroke="#e63946"   stroke-width="2"   stroke-opacity="0.45"/>
+          </svg>
+          <span class="map-origin-pin">🍕</span>
+          <span class="map-dest-pin">🏠</span>
+          <span class="map-moto">🛵</span>
+        </div>
+        <p class="scene-label">Tu pizza está en camino</p>
+      </div>`;
+  } else {
+    el.innerHTML = '';
+  }
 }
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
